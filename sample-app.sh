@@ -1,22 +1,32 @@
 #!/bin/bash
 
-mkdir tempdir
-mkdir tempdir/templates
-mkdir tempdir/static
+# bikin ulang direktori temp
+rm -rf tempdir
+mkdir -p tempdir/templates
+mkdir -p tempdir/static
 
 cp sample_app.py tempdir/.
-cp -r templates/* tempdir/templates/.
-cp -r static/* tempdir/static/.
+cp -r templates/* tempdir/templates/ 2>/dev/null || true
+cp -r static/* tempdir/static/ 2>/dev/null || true
 
-echo "FROM python" >> tempdir/Dockerfile
-echo "RUN pip install flask" >> tempdir/Dockerfile
-echo "COPY  ./static /home/myapp/static/" >> tempdir/Dockerfile
-echo "COPY  ./templates /home/myapp/templates/" >> tempdir/Dockerfile
-echo "COPY  sample_app.py /home/myapp/" >> tempdir/Dockerfile
-echo "EXPOSE 8080" >> tempdir/Dockerfile
-echo "CMD python /home/myapp/sample_app.py" >> tempdir/Dockerfile
+# generate Dockerfile lebih ringan
+cat <<EOF > tempdir/Dockerfile
+FROM python:3.11-slim
+WORKDIR /home/myapp
+COPY requirements.txt .
+RUN pip install --no-cache-dir --progress-bar=off -r requirements.txt
+COPY ./static ./static
+COPY ./templates ./templates
+COPY sample_app.py .
+EXPOSE 5050
+CMD ["python", "sample_app.py"]
+EOF
+
+# buat requirements.txt di tempdir
+echo "flask" > tempdir/requirements.txt
 
 cd tempdir
 docker build -t sampleapp .
-docker run -t -d -p 8080:8080 --name samplerunning sampleapp
-docker ps -a 
+docker rm -f samplerunning 2>/dev/null || true
+docker run -d -p 5050:5050 --name samplerunning sampleapp
+docker ps -a
